@@ -1,0 +1,129 @@
+#include <Servo.h>
+
+// Pins for Ultrasonic Sensor
+const int trigPin = 9;
+const int echoPin = 8;
+
+// Pins for L298N Motor Driver
+const int leftMotorForward = 2;
+const int leftMotorBackward = 3;
+const int rightMotorForward = 4;
+const int rightMotorBackward = 5;
+const int leftMotorSpeed = 6;
+const int rightMotorSpeed = 7;
+
+// Pin for Servo Motor
+const int servoPin = 10;
+
+Servo seedServo;
+
+long duration;
+int distance;
+int seedInterval = 10000;  // Time interval for seed dropping in milliseconds
+unsigned long previousMillis = 0;
+
+void setup() {
+  // Set motor pins as output
+  pinMode(leftMotorForward, OUTPUT);
+  pinMode(leftMotorBackward, OUTPUT);
+  pinMode(rightMotorForward, OUTPUT);
+  pinMode(rightMotorBackward, OUTPUT);
+  pinMode(leftMotorSpeed, OUTPUT);
+  pinMode(rightMotorSpeed, OUTPUT);
+  
+  // Set ultrasonic sensor pins
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  // Attach the servo motor
+  seedServo.attach(servoPin);
+  seedServo.write(0);  // Start with the servo in the default position
+
+  // Set motor speed (0-255 for PWM)
+  analogWrite(leftMotorSpeed, 200);
+  analogWrite(rightMotorSpeed, 200);
+
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Get the current time
+  unsigned long currentMillis = millis();
+
+  // Move forward
+  moveForward();
+
+  // Ultrasonic sensor to detect obstacle
+  distance = getDistance();
+  Serial.print("Distance: ");
+  Serial.println(distance);
+  
+  // Check for obstacle within 20 cm
+  if (distance <= 20 && distance > 0) {
+    // Turn the vehicle to avoid obstacle
+    turnRight();
+    delay(500);
+  }
+
+  // Check if it's time to drop a seed
+  if (currentMillis - previousMillis >= seedInterval) {
+    // Update time for the next seed drop
+    previousMillis = currentMillis;
+    
+    // Stop vehicle and drop seed
+    stopVehicle();
+    dropSeed();
+    
+    // Continue moving
+    moveForward();
+  }
+}
+
+// Function to get distance from ultrasonic sensor
+int getDistance() {
+  // Send a 10us pulse to trigger pin
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Read the echo pin and calculate the distance
+  duration = pulseIn(echoPin, HIGH);
+  int distance = duration * 0.034 / 2;  // Convert to centimeters
+
+  return distance;
+}
+
+// Function to move forward
+void moveForward() {
+  digitalWrite(leftMotorForward, HIGH);
+  digitalWrite(leftMotorBackward, LOW);
+  digitalWrite(rightMotorForward, HIGH);
+  digitalWrite(rightMotorBackward, LOW);
+}
+
+// Function to stop the vehicle
+void stopVehicle() {
+  digitalWrite(leftMotorForward, LOW);
+  digitalWrite(leftMotorBackward, LOW);
+  digitalWrite(rightMotorForward, LOW);
+  digitalWrite(rightMotorBackward, LOW);
+}
+
+// Function to turn the vehicle to the right
+void turnRight() {
+  digitalWrite(leftMotorForward, HIGH);
+  digitalWrite(leftMotorBackward, LOW);
+  digitalWrite(rightMotorForward, LOW);
+  digitalWrite(rightMotorBackward, HIGH);
+  delay(500);
+}
+
+// Function to activate the servo motor to drop seed
+void dropSeed() {
+  seedServo.write(90);  // Rotate the servo to drop seed
+  delay(1000);  // Wait for 1 second
+  seedServo.write(0);  // Return servo to original position
+  delay(500);
+}
